@@ -1,0 +1,110 @@
+---
+title: "hw_3.Rmd"
+author: "Александр Дюльденко"
+date: "18 12 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Задание 3.1
+
+
+```{r}
+library("tidyverse")
+
+data_all <- jsonlite::read_json("C:/R/HW_03/data/fpl_data_2018_2019.json")
+data_all %>% 
+  map("Goals") %>% 
+  unlist() %>% 
+  enframe() %>% 
+  mutate(goals = as.numeric(value)) %>% 
+  select(name, goals) -> data_goals
+
+data_all %>% 
+  map("Club") %>% 
+  unlist() %>% 
+  enframe() %>% 
+  mutate(club = value) %>% 
+  select(name, club) -> data_clubs
+
+full_join(data_clubs, data_goals) %>% 
+  arrange(desc(goals)) %>% 
+  slice(1:30) -> data_end
+
+data_end %>% 
+  ggplot(aes(fct_reorder(name,goals), goals, fill = club)) + # fill раскрашивает на основе переменной
+  geom_col() +
+  coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "Number of Goals",
+       caption = "data from www.premierleague.com")
+```
+
+## Задание 3.2
+
+
+```{r}
+library(tidyverse)
+library(gutenbergr)
+
+gutenberg_metadata %>% 
+  filter(str_detect(title,"Женское международное движение: Сборник статей"))
+
+book <- gutenberg_download(37196)
+
+stop_rus_wors <- read_csv("C:/R/HW_03/data/stopwords-ru.csv")
+
+library(tidytext)
+book %>% 
+  unnest_tokens(word, text) %>% 
+  count(word, sort = TRUE) %>% 
+  anti_join(stop_rus_wors) %>% 
+  slice(1:20) -> words_end
+
+words_end %>% 
+  ggplot(aes(fct_reorder(word, n), n)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "'Женское международное движение: Сборник статей': частотные слова",
+       caption = "source www.gutenberg.org")
+```
+
+## Задание 3.3
+
+
+```{r}
+library(tidyverse)
+library(gutenbergr)
+library(tidytext)
+library(udpipe)
+
+gutenberg_metadata %>% 
+  filter(str_detect(title,"Красавице, которая нюхала табак"))
+
+book_1 <- gutenberg_download(5316)
+
+rumodel <- udpipe_download_model(language = "russian-syntagrus")
+
+str_c(book_1$text, collapse = " ") -> long_line 
+
+udpipe(long_line, object = rumodel) -> book_data
+
+book_data %>% 
+  mutate(upos = str_replace_all(upos, "DET", "PART")) %>%
+  mutate(upos = case_when( 
+    str_detect(lemma, "быть") ~ "VERB",
+    str_detect(lemma, "бы") ~ "PART",
+    TRUE ~ upos)) %>% 
+  count(upos, sort = TRUE) %>% 
+  ggplot(aes(fct_reorder(upos, n), n)) +
+  geom_col() +
+  labs(x = "",
+       y = "",
+       title = "Красавице, которая нюхала табак")
+```
